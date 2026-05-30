@@ -1,738 +1,484 @@
-import requests
-import streamlit as st
+import os
+import pickle
+from typing import Optional, List, Dict, Any, Tuple
 
-# =============================
-# CONFIG
-# =============================
-API_BASE = "https://cinematch-api-gxu6.onrender.com"
-TMDB_IMG = "https://image.tmdb.org/t/p/w500"
-
-st.set_page_config(page_title="CineMatch", page_icon="🎬", layout="wide")
-
-# =============================
-# STYLES — Cinematic Dark Theme
-# =============================
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-/* ── Root & Body ── */
-:root {
-  --bg:       #0a0a0f;
-  --surface:  #111118;
-  --surface2: #1a1a26;
-  --border:   rgba(255,255,255,0.07);
-  --gold:     #f5c518;
-  --gold-dim: rgba(245,197,24,0.15);
-  --text:     #e8e8f0;
-  --muted:    #7a7a99;
-  --red:      #e05252;
-}
-
-html, body, [data-testid="stAppViewContainer"] {
-  background-color: var(--bg) !important;
-  color: var(--text) !important;
-  font-family: 'DM Sans', sans-serif !important;
-}
-
-[data-testid="stAppViewContainer"] {
-  background:
-    radial-gradient(ellipse 80% 40% at 50% -10%, rgba(245,197,24,0.06) 0%, transparent 70%),
-    var(--bg) !important;
-}
-
-/* ── Streamlit Top Toolbar / Header ── */
-[data-testid="stHeader"],
-header[data-testid="stHeader"] {
-  background: var(--bg) !important;
-  border-bottom: 1px solid var(--border) !important;
-}
-[data-testid="stToolbar"],
-[data-testid="stDecoration"] {
-  background: var(--bg) !important;
-}
-[data-testid="stDecoration"] { display: none !important; }
-
-/* ── Block Container ── */
-.block-container {
-  padding-top: 1.5rem !important;
-  padding-bottom: 3rem !important;
-  max-width: 1440px !important;
-}
-
-/* ── Sidebar ── */
-[data-testid="stSidebar"] {
-  background: var(--surface) !important;
-  border-right: 1px solid var(--border) !important;
-}
-[data-testid="stSidebar"] * { color: var(--text) !important; }
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stSlider label {
-  color: var(--muted) !important;
-  font-size: 0.78rem !important;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-[data-testid="stSidebar"] [data-baseweb="select"] > div {
-  background: var(--surface2) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 8px !important;
-  color: var(--text) !important;
-}
-[data-baseweb="popover"] { background: var(--surface2) !important; }
-[data-baseweb="menu"]    { background: var(--surface2) !important; }
-[data-baseweb="option"]  { color: var(--text) !important; }
-[data-baseweb="option"]:hover { background: var(--gold-dim) !important; }
-
-/* ── Sidebar Home Button ── */
-[data-testid="stSidebar"] .stButton > button {
-  width: 100%;
-  background: var(--gold-dim) !important;
-  border: 1px solid rgba(245,197,24,0.3) !important;
-  color: var(--gold) !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
-  font-size: 0.85rem !important;
-  letter-spacing: 0.04em;
-  transition: all 0.2s ease !important;
-}
-[data-testid="stSidebar"] .stButton > button:hover {
-  background: rgba(245,197,24,0.28) !important;
-  border-color: var(--gold) !important;
-}
-
-/* ── Main Buttons ── */
-.stButton > button {
-  background: transparent !important;
-  border: 1px solid var(--border) !important;
-  color: var(--muted) !important;
-  border-radius: 6px !important;
-  font-size: 0.72rem !important;
-  padding: 4px 10px !important;
-  transition: all 0.18s ease !important;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-weight: 500 !important;
-}
-.stButton > button:hover {
-  background: var(--gold-dim) !important;
-  border-color: var(--gold) !important;
-  color: var(--gold) !important;
-}
-
-/* ── Text Input ── */
-.stTextInput > div > div > input {
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
-  color: var(--text) !important;
-  font-size: 1rem !important;
-  padding: 14px 18px !important;
-  transition: border 0.2s;
-}
-.stTextInput > div > div > input:focus {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 0 3px rgba(245,197,24,0.12) !important;
-}
-.stTextInput label {
-  color: var(--muted) !important;
-  font-size: 0.78rem !important;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* ── Selectbox ── */
-[data-baseweb="select"] > div {
-  background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 10px !important;
-  color: var(--text) !important;
-}
-
-/* ── Divider ── */
-hr { border-color: var(--border) !important; margin: 1.2rem 0 !important; }
-
-/* ── Headings ── */
-h1 { font-family: 'Bebas Neue', sans-serif !important; font-size: 3rem !important; letter-spacing: 0.06em !important; color: var(--text) !important; margin-bottom: 0 !important; }
-h2 { font-family: 'Bebas Neue', sans-serif !important; letter-spacing: 0.05em !important; color: var(--text) !important; }
-h3 { font-size: 1rem !important; font-weight: 600 !important; color: var(--text) !important; text-transform: uppercase; letter-spacing: 0.08em; }
-h4 { font-size: 0.82rem !important; font-weight: 500 !important; color: var(--muted) !important; text-transform: uppercase; letter-spacing: 0.12em; }
-
-/* ── Alert boxes ── */
-.stAlert {
-  background: var(--surface2) !important;
-  border-left-color: var(--gold) !important;
-  color: var(--text) !important;
-  border-radius: 8px !important;
-}
-
-/* ── Custom components ── */
-.site-header {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 2rem 0 0.4rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 1.6rem;
-}
-.site-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 2.8rem;
-  letter-spacing: 0.06em;
-  color: #ffffff;
-  line-height: 1;
-  text-shadow: 0 2px 20px rgba(0,0,0,0.8);
-}
-.site-logo .cine  { color: var(--gold); }
-.site-logo .match { color: #ffffff; }
-.site-tagline {
-  color: var(--muted);
-  font-size: 0.82rem;
-  letter-spacing: 0.05em;
-}
-
-.section-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 1.6rem 0 1rem;
-}
-.section-label .pill {
-  background: var(--gold);
-  color: #0a0a0f;
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 20px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.section-label .label-text {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.movie-card {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--surface);
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
-  cursor: pointer;
-  position: relative;
-}
-.movie-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(245,197,24,0.3);
-  border-color: rgba(245,197,24,0.3);
-}
-.movie-card-inner { padding: 8px 10px 10px; }
-.movie-title {
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.3;
-  height: 2.1rem;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-.movie-year {
-  font-size: 0.68rem;
-  color: var(--muted);
-  margin-top: 3px;
-}
-
-.detail-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
-}
-.detail-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 2.4rem;
-  letter-spacing: 0.04em;
-  color: var(--text);
-  line-height: 1.05;
-  margin-bottom: 10px;
-}
-.meta-row {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-.meta-chip {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 3px 12px;
-  font-size: 0.73rem;
-  color: var(--muted);
-  letter-spacing: 0.04em;
-}
-.meta-chip.gold {
-  background: var(--gold-dim);
-  border-color: rgba(245,197,24,0.3);
-  color: var(--gold);
-}
-.overview-text {
-  font-size: 0.9rem;
-  line-height: 1.65;
-  color: rgba(232,232,240,0.85);
-}
-.sidebar-brand {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.6rem;
-  letter-spacing: 0.08em;
-  margin-bottom: 1rem;
-}
-.sidebar-brand .cine  { color: var(--gold); }
-.sidebar-brand .match { color: #ffffff; }
-.sidebar-sep { border-color: var(--border) !important; margin: 0.8rem 0 !important; }
-</style>
-""", unsafe_allow_html=True)
+import numpy as np
+import pandas as pd
+import httpx
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from dotenv import load_dotenv
 
 
-# =============================
-# STATE + ROUTING
-# =============================
-if "view" not in st.session_state:
-    st.session_state.view = "home"
-if "selected_tmdb_id" not in st.session_state:
-    st.session_state.selected_tmdb_id = None
+# =========================
+# ENV
+# =========================
+load_dotenv()
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 
-qp_view = st.query_params.get("view")
-qp_id   = st.query_params.get("id")
+TMDB_BASE = "https://api.themoviedb.org/3"
+TMDB_IMG_500 = "https://image.tmdb.org/t/p/w500"
 
-if qp_view in ("home", "details"):
-    st.session_state.view = qp_view
-if qp_id:
-    try:
-        st.session_state.selected_tmdb_id = int(qp_id)
-        st.session_state.view = "details"
-    except Exception:
-        pass
+if not TMDB_API_KEY:
+    # Don't crash import-time in production if you prefer; but for you better fail early:
+    raise RuntimeError("TMDB_API_KEY missing. Put it in .env as TMDB_API_KEY=xxxx")
 
 
-def goto_home():
-    st.session_state.view = "home"
-    st.query_params["view"] = "home"
-    if "id" in st.query_params:
-        del st.query_params["id"]
-    st.rerun()
+# =========================
+# FASTAPI APP
+# =========================
+app = FastAPI(title="Movie Recommender API", version="3.0")
 
-
-def goto_details(tmdb_id: int):
-    st.session_state.view = "details"
-    st.session_state.selected_tmdb_id = int(tmdb_id)
-    st.query_params["view"] = "details"
-    st.query_params["id"]   = str(int(tmdb_id))
-    st.rerun()
-
-
-# =============================
-# API HELPERS
-# =============================
-@st.cache_data(ttl=30)
-def api_get_json(path: str, params: dict | None = None):
-    try:
-        r = requests.get(f"{API_BASE}{path}", params=params, timeout=25)
-        if r.status_code >= 400:
-            return None, f"HTTP {r.status_code}: {r.text[:300]}"
-        return r.json(), None
-    except Exception as e:
-        return None, f"Request failed: {e}"
-
-
-def poster_grid(cards, cols=6, key_prefix="grid"):
-    """Render a responsive poster grid with title and Open button."""
-    if not cards:
-        st.info("No movies to show.")
-        return
-
-    rows = (len(cards) + cols - 1) // cols
-    idx  = 0
-
-    for r in range(rows):
-        col_list = st.columns(cols)
-        for c in range(cols):
-            if idx >= len(cards):
-                break
-            movie = cards[idx]
-            idx  += 1
-
-            with col_list[c]:
-                poster = movie.get("poster_url")
-                if poster:
-                    st.image(poster, use_column_width=True)
-                else:
-                    # Placeholder for missing poster
-                    st.markdown(
-                        "<div style='height:180px;background:#1a1a26;border-radius:8px;"
-                        "display:flex;align-items:center;justify-content:center;"
-                        "color:#7a7a99;font-size:2rem;margin-bottom:4px;'>🎬</div>",
-                        unsafe_allow_html=True,
-                    )
-
-                # Movie title (styled)
-                st.markdown(
-                    f"<div style='font-size:0.75rem;color:#e8e8f0;line-height:1.3;"
-                    f"min-height:2rem;overflow:hidden;margin:4px 0 4px;"
-                    f"display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;'>"
-                    f"{movie.get('title', 'Untitled')}</div>",
-                    unsafe_allow_html=True,
-                )
-
-                tmdb_id = movie.get("tmdb_id")
-                if tmdb_id:
-                    # Use r+c in key to avoid duplicate key errors
-                    if st.button("Open", key=f"{key_prefix}_{tmdb_id}_{r}_{c}"):
-                        goto_details(tmdb_id)
-
-
-def to_cards_from_tfidf_items(tfidf_items):
-    """Convert TF-IDF recommendation items to poster_grid-compatible card dicts."""
-    cards = []
-    for x in (tfidf_items or []):
-        tmdb = x.get("tmdb")
-        cards.append({
-            "tmdb_id":    tmdb.get("tmdb_id")    if tmdb else None,
-            "title":      (tmdb.get("title")      if tmdb and tmdb.get("title")
-                           else x.get("title", "Untitled")),
-            "poster_url": (tmdb.get("poster_url") if tmdb else None),
-        })
-    # Filter out entries with no tmdb_id (can't navigate to them)
-    return [c for c in cards if c.get("tmdb_id")]
-
-
-def parse_tmdb_search_to_cards(data, keyword: str, limit: int = 24):
-    """Parse raw TMDB search response into (suggestions, cards) tuple."""
-    keyword_l = keyword.strip().lower()
-
-    if isinstance(data, dict) and "results" in data:
-        raw = data.get("results") or []
-        raw_items = []
-        for m in raw:
-            title      = (m.get("title") or "").strip()
-            tmdb_id    = m.get("id")
-            poster_path = m.get("poster_path")
-            if not title or not tmdb_id:
-                continue
-            raw_items.append({
-                "tmdb_id":      int(tmdb_id),
-                "title":        title,
-                "poster_url":   f"{TMDB_IMG}{poster_path}" if poster_path else None,
-                "release_date": m.get("release_date", ""),
-            })
-    elif isinstance(data, list):
-        raw_items = []
-        for m in data:
-            tmdb_id    = m.get("tmdb_id") or m.get("id")
-            title      = (m.get("title") or "").strip()
-            poster_url = m.get("poster_url")
-            if not title or not tmdb_id:
-                continue
-            raw_items.append({
-                "tmdb_id":      int(tmdb_id),
-                "title":        title,
-                "poster_url":   poster_url,
-                "release_date": m.get("release_date", ""),
-            })
-    else:
-        return [], []
-
-    matched    = [x for x in raw_items if keyword_l in x["title"].lower()]
-    final_list = matched if matched else raw_items
-
-    suggestions = []
-    for x in final_list[:10]:
-        year  = (x.get("release_date") or "")[:4]
-        label = f"{x['title']} ({year})" if year else x["title"]
-        suggestions.append((label, x["tmdb_id"]))
-
-    cards = [
-        {"tmdb_id": x["tmdb_id"], "title": x["title"], "poster_url": x["poster_url"]}
-        for x in final_list[:limit]
-    ]
-    return suggestions, cards
-
-
-# =============================
-# SIDEBAR
-# =============================
-CATEGORY_ICONS = {
-    "trending":    "🔥",
-    "popular":     "⭐",
-    "top_rated":   "🏆",
-    "now_playing": "🎞️",
-    "upcoming":    "📅",
-}
-
-with st.sidebar:
-    st.markdown(
-        "<div class='sidebar-brand'>"
-        "<span class='cine'>Cine</span><span class='match'>Match</span>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    if st.button("🏠  Home"):
-        goto_home()
-
-    st.markdown("<hr class='sidebar-sep'>", unsafe_allow_html=True)
-
-    st.markdown(
-        "<div style='color:#7a7a99;font-size:0.72rem;text-transform:uppercase;"
-        "letter-spacing:0.1em;margin-bottom:6px;'>Feed Category</div>",
-        unsafe_allow_html=True,
-    )
-    home_category = st.selectbox(
-        "Category",
-        ["trending", "popular", "top_rated", "now_playing", "upcoming"],
-        index=0,
-        label_visibility="collapsed",
-    )
-
-    st.markdown(
-        "<div style='color:#7a7a99;font-size:0.72rem;text-transform:uppercase;"
-        "letter-spacing:0.1em;margin-top:14px;margin-bottom:4px;'>Grid Columns</div>",
-        unsafe_allow_html=True,
-    )
-    grid_cols = st.slider("Grid columns", 4, 8, 6, label_visibility="collapsed")
-
-    st.markdown("<hr class='sidebar-sep'>", unsafe_allow_html=True)
-    st.markdown(
-        "<div style='color:#3d3d55;font-size:0.7rem;margin-top:8px;'>"
-        "Powered by TMDB · TF-IDF</div>",
-        unsafe_allow_html=True,
-    )
-
-
-# =============================
-# HEADER
-# =============================
-st.markdown(
-    "<div class='site-header'>"
-    "<span class='site-logo'><span class='cine'>Cine</span><span class='match'>Match</span></span>"
-    "<span class='site-tagline'>Your cinematic compass — discover, explore, recommend</span>"
-    "</div>",
-    unsafe_allow_html=True,
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for local streamlit
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
-# ==========================================================
-# VIEW : HOME
-# ==========================================================
-if st.session_state.view == "home":
+# =========================
+# PICKLE GLOBALS
+# =========================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-    typed = st.text_input(
-        "Search",
-        placeholder="🔍  Search by title — avenger, batman, love...",
-        label_visibility="collapsed",
+DF_PATH = os.path.join(BASE_DIR, "df.pkl")
+INDICES_PATH = os.path.join(BASE_DIR, "indices.pkl")
+TFIDF_MATRIX_PATH = os.path.join(BASE_DIR, "tfidf_matrix.pkl")
+TFIDF_PATH = os.path.join(BASE_DIR, "tfidf.pkl")
+
+df: Optional[pd.DataFrame] = None
+indices_obj: Any = None
+tfidf_matrix: Any = None
+tfidf_obj: Any = None
+
+TITLE_TO_IDX: Optional[Dict[str, int]] = None
+
+
+# =========================
+# MODELS
+# =========================
+class TMDBMovieCard(BaseModel):
+    tmdb_id: int
+    title: str
+    poster_url: Optional[str] = None
+    release_date: Optional[str] = None
+    vote_average: Optional[float] = None
+
+
+class TMDBMovieDetails(BaseModel):
+    tmdb_id: int
+    title: str
+    overview: Optional[str] = None
+    release_date: Optional[str] = None
+    poster_url: Optional[str] = None
+    backdrop_url: Optional[str] = None
+    genres: List[dict] = []
+
+
+class TFIDFRecItem(BaseModel):
+    title: str
+    score: float
+    tmdb: Optional[TMDBMovieCard] = None
+
+
+class SearchBundleResponse(BaseModel):
+    query: str
+    movie_details: TMDBMovieDetails
+    tfidf_recommendations: List[TFIDFRecItem]
+    genre_recommendations: List[TMDBMovieCard]
+
+
+# =========================
+# UTILS
+# =========================
+def _norm_title(t: str) -> str:
+    return str(t).strip().lower()
+
+
+def make_img_url(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    return f"{TMDB_IMG_500}{path}"
+
+
+async def tmdb_get(path: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Safe TMDB GET:
+    - Network errors -> 502
+    - TMDB API errors -> 502 with detail
+    """
+    q = dict(params)
+    q["api_key"] = TMDB_API_KEY
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(f"{TMDB_BASE}{path}", params=q)
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"TMDB request error: {type(e).__name__} | {repr(e)}",
+        )
+
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=502, detail=f"TMDB error {r.status_code}: {r.text}"
+        )
+
+    return r.json()
+
+
+async def tmdb_cards_from_results(
+    results: List[dict], limit: int = 20
+) -> List[TMDBMovieCard]:
+    out: List[TMDBMovieCard] = []
+    for m in (results or [])[:limit]:
+        out.append(
+            TMDBMovieCard(
+                tmdb_id=int(m["id"]),
+                title=m.get("title") or m.get("name") or "",
+                poster_url=make_img_url(m.get("poster_path")),
+                release_date=m.get("release_date"),
+                vote_average=m.get("vote_average"),
+            )
+        )
+    return out
+
+
+async def tmdb_movie_details(movie_id: int) -> TMDBMovieDetails:
+    data = await tmdb_get(f"/movie/{movie_id}", {"language": "en-US"})
+    return TMDBMovieDetails(
+        tmdb_id=int(data["id"]),
+        title=data.get("title") or "",
+        overview=data.get("overview"),
+        release_date=data.get("release_date"),
+        poster_url=make_img_url(data.get("poster_path")),
+        backdrop_url=make_img_url(data.get("backdrop_path")),
+        genres=data.get("genres", []) or [],
     )
 
-    if typed.strip():
-        if len(typed.strip()) < 2:
-            st.caption("Type at least 2 characters for suggestions.")
-        else:
-            data, err = api_get_json("/tmdb/search", params={"query": typed.strip()})
 
-            if err or data is None:
-                st.error(f"Search failed: {err}")
-            else:
-                suggestions, cards = parse_tmdb_search_to_cards(data, typed.strip(), limit=24)
-
-                if suggestions:
-                    labels   = ["— Select a title —"] + [s[0] for s in suggestions]
-                    selected = st.selectbox(
-                        "Suggestions", labels, index=0, label_visibility="collapsed"
-                    )
-                    if selected != "— Select a title —":
-                        label_to_id = {s[0]: s[1] for s in suggestions}
-                        goto_details(label_to_id[selected])
-                else:
-                    st.info("No suggestions found. Try another keyword.")
-
-                st.markdown(
-                    "<div class='section-label'>"
-                    "<span class='pill'>Results</span>"
-                    f"<span class='label-text'>Matching &ldquo;{typed}&rdquo;</span>"
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-                poster_grid(cards, cols=grid_cols, key_prefix="search_results")
-
-        st.stop()
-
-    # ── HOME FEED ──
-    icon  = CATEGORY_ICONS.get(home_category, "🎬")
-    label = home_category.replace("_", " ").title()
-    st.markdown(
-        f"<div class='section-label'>"
-        f"<span class='pill'>{icon} {label}</span>"
-        f"<span class='label-text'>Home Feed</span>"
-        f"</div>",
-        unsafe_allow_html=True,
+async def tmdb_search_movies(query: str, page: int = 1) -> Dict[str, Any]:
+    """
+    Raw TMDB response for keyword search (MULTIPLE results).
+    Streamlit will use this for suggestions and grid.
+    """
+    return await tmdb_get(
+        "/search/movie",
+        {
+            "query": query,
+            "include_adult": "false",
+            "language": "en-US",
+            "page": page,
+        },
     )
 
-    home_cards, err = api_get_json("/home", params={"category": home_category, "limit": 24})
-    if err or not home_cards:
-        st.error(f"Home feed failed: {err or 'Unknown error'}")
-        st.stop()
 
-    poster_grid(home_cards, cols=grid_cols, key_prefix="home_feed")
+async def tmdb_search_first(query: str) -> Optional[dict]:
+    data = await tmdb_search_movies(query=query, page=1)
+    results = data.get("results", [])
+    return results[0] if results else None
 
 
-# ==========================================================
-# VIEW : DETAILS
-# ==========================================================
-elif st.session_state.view == "details":
+# =========================
+# TF-IDF Helpers
+# =========================
+def build_title_to_idx_map(indices: Any) -> Dict[str, int]:
+    """
+    indices.pkl can be:
+    - dict(title -> index)
+    - pandas Series (index=title, value=index)
+    We normalize into TITLE_TO_IDX.
+    """
+    title_to_idx: Dict[str, int] = {}
 
-    tmdb_id = st.session_state.selected_tmdb_id
-    if not tmdb_id:
-        st.warning("No movie selected.")
-        if st.button("← Back to Home"):
-            goto_home()
-        st.stop()
+    if isinstance(indices, dict):
+        for k, v in indices.items():
+            title_to_idx[_norm_title(k)] = int(v)
+        return title_to_idx
 
-    if st.button("← Back to Home"):
-        goto_home()
-
-    # ── Movie Details ──
-    data, err = api_get_json(f"/movie/id/{tmdb_id}")
-    if err or not data:
-        st.error(f"Could not load details: {err or 'Unknown error'}")
-        st.stop()
-
-    # Backdrop banner
-    if data.get("backdrop_url"):
-        st.markdown(
-            f"<div style='border-radius:16px;overflow:hidden;margin-bottom:1.4rem;"
-            f"position:relative;max-height:340px;'>"
-            f"<img src='{data['backdrop_url']}' style='width:100%;object-fit:cover;"
-            f"max-height:340px;opacity:0.75;display:block;'/>"
-            f"<div style='position:absolute;inset:0;"
-            f"background:linear-gradient(to right,rgba(10,10,15,0.85) 0%,transparent 60%);"
-            f"border-radius:16px;'></div>"
-            f"</div>",
-            unsafe_allow_html=True,
+    # pandas Series or similar mapping
+    try:
+        for k, v in indices.items():
+            title_to_idx[_norm_title(k)] = int(v)
+        return title_to_idx
+    except Exception:
+        # last resort: if it's a list-like etc.
+        raise RuntimeError(
+            "indices.pkl must be dict or pandas Series-like (with .items())"
         )
 
-    left, right = st.columns([1, 2.6], gap="large")
 
-    with left:
-        if data.get("poster_url"):
-            st.image(data["poster_url"], use_column_width=True)
-        else:
-            st.markdown(
-                "<div style='height:320px;display:flex;align-items:center;"
-                "justify-content:center;background:#1a1a26;border-radius:12px;"
-                "color:#7a7a99;font-size:3rem;'>🎬</div>",
-                unsafe_allow_html=True,
-            )
-
-    with right:
-        st.markdown("<div class='detail-card'>", unsafe_allow_html=True)
-
-        release     = data.get("release_date") or ""
-        year        = release[:4] if release else ""
-        genres      = data.get("genres", []) or []
-
-        st.markdown(
-            f"<div class='detail-title'>{data.get('title', '')}</div>",
-            unsafe_allow_html=True,
-        )
-
-        chips_html = ""
-        if year:
-            chips_html += f"<span class='meta-chip gold'>{year}</span>"
-        if release:
-            chips_html += f"<span class='meta-chip'>{release}</span>"
-        for g in genres:
-            chips_html += f"<span class='meta-chip'>{g['name']}</span>"
-        if chips_html:
-            st.markdown(f"<div class='meta-row'>{chips_html}</div>", unsafe_allow_html=True)
-
-        st.markdown(
-            "<hr style='border-color:rgba(255,255,255,0.07);margin:12px 0;'>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            "<div style='color:#7a7a99;font-size:0.72rem;text-transform:uppercase;"
-            "letter-spacing:0.1em;margin-bottom:8px;'>Overview</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f"<div class='overview-text'>{data.get('overview') or 'No overview available.'}</div>",
-            unsafe_allow_html=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # ── Recommendations ──
-    st.markdown("<div style='height:1.6rem;'></div>", unsafe_allow_html=True)
-
-    title = (data.get("title") or "").strip()
-
-    if not title:
-        st.warning("No title available to compute recommendations.")
-        st.stop()
-
-    bundle, err2 = api_get_json(
-        "/movie/search",
-        params={"query": title, "tfidf_top_n": 12, "genre_limit": 12},
+def get_local_idx_by_title(title: str) -> int:
+    global TITLE_TO_IDX
+    if TITLE_TO_IDX is None:
+        raise HTTPException(status_code=500, detail="TF-IDF index map not initialized")
+    key = _norm_title(title)
+    if key in TITLE_TO_IDX:
+        return int(TITLE_TO_IDX[key])
+    raise HTTPException(
+        status_code=404, detail=f"Title not found in local dataset: '{title}'"
     )
 
-    if not err2 and bundle:
 
-        # ── TF-IDF Recommendations ──
-        tfidf_items = bundle.get("tfidf_recommendations", [])
-        tfidf_cards = to_cards_from_tfidf_items(tfidf_items)
+def tfidf_recommend_titles(
+    query_title: str, top_n: int = 10
+) -> List[Tuple[str, float]]:
+    """
+    Returns list of (title, score) from local df using cosine similarity on TF-IDF matrix.
+    Safe against missing columns/rows.
+    """
+    global df, tfidf_matrix
+    if df is None or tfidf_matrix is None:
+        raise HTTPException(status_code=500, detail="TF-IDF resources not loaded")
 
-        if tfidf_cards:
-            st.markdown(
-                "<div class='section-label'>"
-                "<span class='pill'>TF-IDF</span>"
-                "<span class='label-text'>Similar Movies</span>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-            poster_grid(tfidf_cards, cols=grid_cols, key_prefix="details_tfidf")
-        else:
-            st.info("No TF-IDF recommendations found for this title.")
+    idx = get_local_idx_by_title(query_title)
 
-        # ── Genre Recommendations ──
-        genre_cards = bundle.get("genre_recommendations", [])
-        if genre_cards:
-            st.markdown(
-                "<div class='section-label'>"
-                "<span class='pill'>Genre</span>"
-                "<span class='label-text'>More Like This</span>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-            poster_grid(genre_cards, cols=grid_cols, key_prefix="details_genre")
+    # query vector
+    qv = tfidf_matrix[idx]
+    scores = (tfidf_matrix @ qv.T).toarray().ravel()
 
-    else:
-        # Fallback: genre-only via dedicated endpoint
-        st.info("Showing genre recommendations (TF-IDF unavailable).")
-        genre_only, err3 = api_get_json(
-            "/recommend/genre", params={"tmdb_id": tmdb_id, "limit": 18}
+    # sort descending
+    order = np.argsort(-scores)
+
+    out: List[Tuple[str, float]] = []
+    for i in order:
+        if int(i) == int(idx):
+            continue
+        try:
+            title_i = str(df.iloc[int(i)]["title"])
+        except Exception:
+            continue
+        out.append((title_i, float(scores[int(i)])))
+        if len(out) >= top_n:
+            break
+    return out
+
+
+async def attach_tmdb_card_by_title(title: str) -> Optional[TMDBMovieCard]:
+    """
+    Uses TMDB search by title to fetch poster for a local title.
+    If not found, returns None (never crashes the endpoint).
+    """
+    try:
+        m = await tmdb_search_first(title)
+        if not m:
+            return None
+        return TMDBMovieCard(
+            tmdb_id=int(m["id"]),
+            title=m.get("title") or title,
+            poster_url=make_img_url(m.get("poster_path")),
+            release_date=m.get("release_date"),
+            vote_average=m.get("vote_average"),
         )
-        if not err3 and genre_only:
-            st.markdown(
-                "<div class='section-label'>"
-                "<span class='pill'>Genre</span>"
-                "<span class='label-text'>More Like This</span>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-            poster_grid(genre_only, cols=grid_cols, key_prefix="details_genre_fallback")
-        else:
-            st.warning("No recommendations available right now.")
+    except Exception:
+        return None
+
+
+# =========================
+# STARTUP: LOAD PICKLES
+# =========================
+@app.on_event("startup")
+def load_pickles():
+    global df, indices_obj, tfidf_matrix, tfidf_obj, TITLE_TO_IDX
+
+    # Load df
+    with open(DF_PATH, "rb") as f:
+        df = pickle.load(f)
+
+    # Load indices
+    with open(INDICES_PATH, "rb") as f:
+        indices_obj = pickle.load(f)
+
+    # Load TF-IDF matrix (usually scipy sparse)
+    with open(TFIDF_MATRIX_PATH, "rb") as f:
+        tfidf_matrix = pickle.load(f)
+
+    # Load tfidf vectorizer (optional, not used directly here)
+    with open(TFIDF_PATH, "rb") as f:
+        tfidf_obj = pickle.load(f)
+
+    # Build normalized map
+    TITLE_TO_IDX = build_title_to_idx_map(indices_obj)
+
+    # sanity
+    if df is None or "title" not in df.columns:
+        raise RuntimeError("df.pkl must contain a DataFrame with a 'title' column")
+
+
+# =========================
+# ROUTES
+# =========================
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# ---------- HOME FEED (TMDB) ----------
+@app.get("/home", response_model=List[TMDBMovieCard])
+async def home(
+    category: str = Query("popular"),
+    limit: int = Query(24, ge=1, le=50),
+):
+    """
+    Home feed for Streamlit (posters).
+    category:
+      - trending (trending/movie/day)
+      - popular, top_rated, upcoming, now_playing  (movie/{category})
+    """
+    try:
+        if category == "trending":
+            data = await tmdb_get("/trending/movie/day", {"language": "en-US"})
+            return await tmdb_cards_from_results(data.get("results", []), limit=limit)
+
+        if category not in {"popular", "top_rated", "upcoming", "now_playing"}:
+            raise HTTPException(status_code=400, detail="Invalid category")
+
+        data = await tmdb_get(f"/movie/{category}", {"language": "en-US", "page": 1})
+        return await tmdb_cards_from_results(data.get("results", []), limit=limit)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Home route failed: {e}")
+
+
+# ---------- TMDB KEYWORD SEARCH (MULTIPLE RESULTS) ----------
+@app.get("/tmdb/search")
+async def tmdb_search(
+    query: str = Query(..., min_length=1),
+    page: int = Query(1, ge=1, le=10),
+):
+    """
+    Returns RAW TMDB shape with 'results' list.
+    Streamlit will use it for:
+      - dropdown suggestions
+      - grid results
+    """
+    return await tmdb_search_movies(query=query, page=page)
+
+
+# ---------- MOVIE DETAILS (SAFE ROUTE) ----------
+@app.get("/movie/id/{tmdb_id}", response_model=TMDBMovieDetails)
+async def movie_details_route(tmdb_id: int):
+    return await tmdb_movie_details(tmdb_id)
+
+
+# ---------- GENRE RECOMMENDATIONS ----------
+@app.get("/recommend/genre", response_model=List[TMDBMovieCard])
+async def recommend_genre(
+    tmdb_id: int = Query(...),
+    limit: int = Query(18, ge=1, le=50),
+):
+    """
+    Given a TMDB movie ID:
+    - fetch details
+    - pick first genre
+    - discover movies in that genre (popular)
+    """
+    details = await tmdb_movie_details(tmdb_id)
+    if not details.genres:
+        return []
+
+    genre_id = details.genres[0]["id"]
+    discover = await tmdb_get(
+        "/discover/movie",
+        {
+            "with_genres": genre_id,
+            "language": "en-US",
+            "sort_by": "popularity.desc",
+            "page": 1,
+        },
+    )
+    cards = await tmdb_cards_from_results(discover.get("results", []), limit=limit)
+    return [c for c in cards if c.tmdb_id != tmdb_id]
+
+
+# ---------- TF-IDF ONLY (debug/useful) ----------
+@app.get("/recommend/tfidf")
+async def recommend_tfidf(
+    title: str = Query(..., min_length=1),
+    top_n: int = Query(10, ge=1, le=50),
+):
+    recs = tfidf_recommend_titles(title, top_n=top_n)
+    return [{"title": t, "score": s} for t, s in recs]
+
+
+# ---------- BUNDLE: Details + TF-IDF recs + Genre recs ----------
+@app.get("/movie/search", response_model=SearchBundleResponse)
+async def search_bundle(
+    query: str = Query(..., min_length=1),
+    tfidf_top_n: int = Query(12, ge=1, le=30),
+    genre_limit: int = Query(12, ge=1, le=30),
+):
+    """
+    This endpoint is for when you have a selected movie and want:
+      - movie details
+      - TF-IDF recommendations (local) + posters
+      - Genre recommendations (TMDB) + posters
+
+    NOTE:
+    - It selects the BEST match from TMDB for the given query.
+    - If you want MULTIPLE matches, use /tmdb/search
+    """
+    best = await tmdb_search_first(query)
+    if not best:
+        raise HTTPException(
+            status_code=404, detail=f"No TMDB movie found for query: {query}"
+        )
+
+    tmdb_id = int(best["id"])
+    details = await tmdb_movie_details(tmdb_id)
+
+    # 1) TF-IDF recommendations (never crash endpoint)
+    tfidf_items: List[TFIDFRecItem] = []
+
+    recs: List[Tuple[str, float]] = []
+
+    try:
+        print("TMDB title:", details.title)
+        recs = tfidf_recommend_titles(details.title, top_n=tfidf_top_n)
+        print("TFIDF found:", len(recs))
+    
+    except Exception as e:
+        print("FIRST TFIDF ERROR:", str(e))
+
+        try:
+            print("Trying query:", query)
+            recs = tfidf_recommend_titles(query, top_n=tfidf_top_n)
+            print("Fallback found:", len(recs))
+    
+        except Exception as e2:
+            print("SECOND TFIDF ERROR:", str(e2))
+            recs = []
+
+    for title, score in recs:
+        card = await attach_tmdb_card_by_title(title)
+        tfidf_items.append(TFIDFRecItem(title=title, score=score, tmdb=card))
+
+    # 2) Genre recommendations (TMDB discover by first genre)
+    genre_recs: List[TMDBMovieCard] = []
+    if details.genres:
+        genre_id = details.genres[0]["id"]
+        discover = await tmdb_get(
+            "/discover/movie",
+            {
+                "with_genres": genre_id,
+                "language": "en-US",
+                "sort_by": "popularity.desc",
+                "page": 1,
+            },
+        )
+        cards = await tmdb_cards_from_results(
+            discover.get("results", []), limit=genre_limit
+        )
+        genre_recs = [c for c in cards if c.tmdb_id != details.tmdb_id]
+
+    return SearchBundleResponse(
+        query=query,
+        movie_details=details,
+        tfidf_recommendations=tfidf_items,
+        genre_recommendations=genre_recs,
+    )
