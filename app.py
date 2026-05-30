@@ -359,8 +359,7 @@ def poster_grid(cards, cols=6, key_prefix="grid"):
 
             with cols_list[c]:
                 if movie.get("poster_url"):
-                    st.image(movie["poster_url"], use_container_width=True)
-
+                    st.image(movie["poster_url"],use_column_width=True)
                 st.write(movie["title"])
 
                 if st.button(
@@ -600,7 +599,7 @@ elif st.session_state.view == "details":
 
     with left:
         if data.get("poster_url"):
-            st.image(data["poster_url"], use_container_width=True)
+            st.image(data["poster_url"], use_column_width=True)
         else:
             st.markdown(
                 "<div style='height:320px;display:flex;align-items:center;"
