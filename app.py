@@ -700,6 +700,13 @@ elif st.session_state.view == "details":
             )
     
             st.write("Cards Count:", len(tfidf_cards))
+
+            # DEBUG
+            for movie in tfidf_cards:
+                st.write(movie["title"])
+            
+                if movie.get("poster_url"):
+                    st.image(movie["poster_url"], width=150)
     
             poster_grid(
                 tfidf_cards,
