@@ -1,4 +1,4 @@
-# Movie Recommendation System
+# CINE MATCH - Movie Recommendation System
 
 A Movie Recommendation System built using Python, NLP, and Streamlit.
 
@@ -45,6 +45,6 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-##Dataset
+## Dataset
 
 The project uses a movie dataset containing movie metadata and descriptions for generating recommendations.
