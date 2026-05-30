@@ -670,6 +670,12 @@ elif st.session_state.view == "details":
             "/movie/search",
             params={"query": title, "tfidf_top_n": 12, "genre_limit": 12},
         )
+    st.write("BUNDLE KEYS:", bundle.keys() if bundle else None)
+
+    if bundle:
+        st.write("TFIDF RAW:", bundle.get("tfidf_recommendations"))
+        st.write("TFIDF LENGTH:", len(bundle.get("tfidf_recommendations", [])))
+      
     
         print("API Error:", err2)
         print("TFIDF Count:", len(bundle.get("tfidf_recommendations", [])))
