@@ -436,14 +436,22 @@ async def search_bundle(
     tfidf_items: List[TFIDFRecItem] = []
 
     recs: List[Tuple[str, float]] = []
+
     try:
-        # try local dataset by TMDB title
+        print("TMDB title:", details.title)
         recs = tfidf_recommend_titles(details.title, top_n=tfidf_top_n)
-    except Exception:
-        # fallback to user query
+        print("TFIDF found:", len(recs))
+    
+    except Exception as e:
+        print("FIRST TFIDF ERROR:", str(e))
+
         try:
+            print("Trying query:", query)
             recs = tfidf_recommend_titles(query, top_n=tfidf_top_n)
-        except Exception:
+            print("Fallback found:", len(recs))
+    
+        except Exception as e2:
+            print("SECOND TFIDF ERROR:", str(e2))
             recs = []
 
     for title, score in recs:
