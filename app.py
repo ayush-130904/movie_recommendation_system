@@ -384,14 +384,24 @@ def poster_grid(cards, cols=6, key_prefix="grid"):
 
 def to_cards_from_tfidf_items(tfidf_items):
     cards = []
+
     for x in tfidf_items or []:
-        tmdb = x.get("tmdb") or {}
-        if tmdb.get("tmdb_id"):
-            cards.append({
-                "tmdb_id": tmdb["tmdb_id"],
-                "title": tmdb.get("title") or x.get("title") or "Untitled",
-                "poster_url": tmdb.get("poster_url"),
-            })
+        tmdb = x.get("tmdb")
+
+        cards.append({
+            "tmdb_id": tmdb.get("tmdb_id") if tmdb else None,
+            "title": (
+                tmdb.get("title")
+                if tmdb and tmdb.get("title")
+                else x.get("title", "Untitled")
+            ),
+            "poster_url": (
+                tmdb.get("poster_url")
+                if tmdb
+                else None
+            ),
+        })
+
     return cards
 
 
@@ -660,6 +670,16 @@ elif st.session_state.view == "details":
             "/movie/search",
             params={"query": title, "tfidf_top_n": 12, "genre_limit": 12},
         )
+      st.write("API Error:", err2)
+
+      if bundle:
+          st.write(
+              "TFIDF Count:",
+              len(bundle.get("tfidf_recommendations", []))
+          )
+      
+          st.json(bundle.get("tfidf_recommendations", []))
+      
 
         if not err2 and bundle:
             st.markdown(
@@ -669,8 +689,14 @@ elif st.session_state.view == "details":
                 "</div>",
                 unsafe_allow_html=True,
             )
+            tfidf_cards = to_cards_from_tfidf_items(
+                bundle.get("tfidf_recommendations", [])
+            )
+            
+            st.write("Cards Count:", len(tfidf_cards))
+            
             poster_grid(
-                to_cards_from_tfidf_items(bundle.get("tfidf_recommendations")),
+                tfidf_cards,
                 cols=grid_cols,
                 key_prefix="details_tfidf",
             )
