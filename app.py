@@ -670,17 +670,16 @@ elif st.session_state.view == "details":
             "/movie/search",
             params={"query": title, "tfidf_top_n": 12, "genre_limit": 12},
         )
-      st.write("API Error:", err2)
-
-      if bundle:
-          st.write(
-              "TFIDF Count:",
-              len(bundle.get("tfidf_recommendations", []))
-          )
-      
-          st.json(bundle.get("tfidf_recommendations", []))
-      
-
+    
+        print("API Error:", err2)
+        print("TFIDF Count:", len(bundle.get("tfidf_recommendations", [])))
+    
+        if bundle:
+            st.write(
+                "TFIDF Count:",
+                len(bundle.get("tfidf_recommendations", []))
+            )
+    
         if not err2 and bundle:
             st.markdown(
                 "<div class='section-label'>"
@@ -689,12 +688,13 @@ elif st.session_state.view == "details":
                 "</div>",
                 unsafe_allow_html=True,
             )
+    
             tfidf_cards = to_cards_from_tfidf_items(
                 bundle.get("tfidf_recommendations", [])
             )
-            
+    
             st.write("Cards Count:", len(tfidf_cards))
-            
+    
             poster_grid(
                 tfidf_cards,
                 cols=grid_cols,
