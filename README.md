@@ -30,7 +30,7 @@ A Movie Recommendation System built using Python, NLP, and Streamlit.
 
 ```bash
 git clone https://github.com/your-username/movie_recommendation_system.git
-cd movie_recommendation_system
+cd movie_recommendation_system ```
 
 2. Install Dependencies
 
