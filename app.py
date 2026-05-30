@@ -346,41 +346,28 @@ def poster_grid(cards, cols=6, key_prefix="grid"):
 
     rows = (len(cards) + cols - 1) // cols
     idx = 0
+
     for r in range(rows):
-        colset = st.columns(cols, gap="small")
+        cols_list = st.columns(cols)
+
         for c in range(cols):
             if idx >= len(cards):
                 break
-            m = cards[idx]
+
+            movie = cards[idx]
             idx += 1
 
-            tmdb_id = m.get("tmdb_id")
-            title = m.get("title", "Untitled")
-            poster = m.get("poster_url")
+            with cols_list[c]:
+                if movie.get("poster_url"):
+                    st.image(movie["poster_url"], use_container_width=True)
 
-            with colset[c]:
-                st.markdown("<div class='movie-card'>", unsafe_allow_html=True)
-                if poster:
-                    st.image(poster, use_column_width=True)
-                else:
-                    st.markdown(
-                        "<div style='height:160px;display:flex;align-items:center;"
-                        "justify-content:center;background:#1a1a26;color:#7a7a99;"
-                        "font-size:2rem;'>🎬</div>",
-                        unsafe_allow_html=True,
-                    )
-                st.markdown(
-                    f"<div class='movie-card-inner'>"
-                    f"<div class='movie-title'>{title}</div>"
-                    f"</div>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.write(movie["title"])
 
-                if st.button("▶ Open", key=f"{key_prefix}_{r}_{c}_{idx}_{tmdb_id}"):
-                    if tmdb_id:
-                        goto_details(tmdb_id)
-
+                if st.button(
+                    "Open",
+                    key=f"{key_prefix}_{movie['tmdb_id']}"
+                ):
+                    goto_details(movie["tmdb_id"])
 
 def to_cards_from_tfidf_items(tfidf_items):
     cards = []
@@ -613,7 +600,7 @@ elif st.session_state.view == "details":
 
     with left:
         if data.get("poster_url"):
-            st.image(data["poster_url"], use_column_width=True)
+            st.image(data["poster_url"], use_container_width=True)
         else:
             st.markdown(
                 "<div style='height:320px;display:flex;align-items:center;"
